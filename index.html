@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acerte o Alvo — Joguinho Responsivo</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --card: #111831;
+      --text: #e9eef7;
+      --muted: #a8b2c7;
+      --accent: #10b981; /* verde */
+      --accent-2: #60a5fa; /* azul */
+      --danger: #ef4444;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      --radius: 16px;
+      --gap: 16px;
+      --target-size: 64px; /* será ajustado pela dificuldade */
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f8fc;
+        --card: #ffffff;
+        --text: #0b1020;
+        --muted: #50607a;
+        --shadow: 0 10px 30px rgba(16, 24, 40, 0.08);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: radial-gradient(1200px 800px at 10% 0%, #0f1630 0%, var(--bg) 45%);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .wrapper {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 100dvh;
+      gap: var(--gap);
+      padding: clamp(12px, 2.5vw, 24px);
+    }
+
+    header {
+      display: grid;
+      gap: var(--gap);
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: var(--gap);
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .brand .logo {
+      width: 36px; height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: var(--shadow);
+    }
+
+    .panel {
+      display: flex;
+      gap: var(--gap);
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px 14px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--gap);
+    }
+
+    .stat { text-align: center; }
+    .stat h3 { margin: 0; font-size: clamp(14px, 2.2vw, 16px); color: var(--muted); font-weight: 600; }
+    .stat p { margin: 6px 0 0; font-size: clamp(20px, 4.5vw, 28px); font-weight: 800; }
+
+    .controls { display: flex; gap: var(--gap); flex-wrap: wrap; }
+
+    button, select {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 14px;
+      font-size: 15px;
+      font-weight: 600;
+      background: #1b2344;
+      color: var(--text);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    select { padding-right: 34px; }
+
+    button.primary { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; }
+    button.ghost { background: transparent; outline: 2px solid #2a355f; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* Área do jogo */
+    .board-wrap {
+      display: grid;
+      grid-template-columns: 1fr;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .board {
+      width: min(92vw, 720px);
+      aspect-ratio: 1 / 1;
+      background: repeating-conic-gradient(from 0deg, #0d1430 0 10deg, #0a1127 10deg 20deg);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.2)),
+                  radial-gradient(500px 400px at 70% 10%, rgba(96,165,250,0.12), transparent 60%),
+                  radial-gradient(600px 500px at 30% 90%, rgba(16,185,129,0.12), transparent 60%),
+                  #0b122b;
+      border-radius: calc(var(--radius) * 1.5);
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      outline: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .target {
+      --size: var(--target-size);
+      position: absolute;
+      width: var(--size);
+      height: var(--size);
+      border-radius: 999px;
+      background: radial-gradient(circle at 35% 30%, #fff 0 6px, #fcd34d 6px 12px, #f59e0b 12px 20px, #ef4444 20px 100%);
+      box-shadow: 0 8px 30px rgba(239, 68, 68, 0.5);
+      border: 2px solid rgba(255,255,255,0.85);
+      display: grid;
+      place-items: center;
+      transform: translate(-50%, -50%);
+      transition: transform 80ms ease;
+      will-change: transform, left, top;
+      touch-action: manipulation;
+    }
+    .target:active { transform: translate(-50%, -50%) scale(0.94); }
+    .pop { animation: pop 240ms ease; }
+    @keyframes pop { from { transform: translate(-50%, -50%) scale(0.6); } to { transform: translate(-50%, -50%) scale(1); } }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      place-items: center;
+      background: rgba(0,0,0,0.36);
+      backdrop-filter: blur(3px);
+    }
+    .overlay.show { display: grid; }
+    .overlay .modal {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 20px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      width: min(90vw, 380px);
+    }
+
+    footer { color: var(--muted); text-align: center; font-size: 14px; }
+
+    /* Responsividade */
+    @media (min-width: 768px) {
+      header { grid-template-columns: 1fr auto; align-items: center; }
+      .topbar { grid-template-columns: auto 1fr auto auto; }
+      .panel { justify-content: flex-end; }
+      .board { width: min(86vw, 760px); }
+    }
+    @media (min-width: 1024px) {
+      .wrapper { padding: 28px 36px; }
+      .board { width: min(70vw, 780px); }
+    }
+
+    /* Alternância de tema manual */
+    .theme-light {
+      --bg: #f6f8fc; --card: #ffffff; --text: #0b1020; --muted: #50607a; --shadow: 0 10px 30px rgba(16, 24, 40, 0.08);
+      background: radial-gradient(1200px 800px at 10% 0%, #eaf0ff 0%, var(--bg) 45%);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper" id="app">
+    <header>
+      <div class="topbar">
+        <div class="brand">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <div style="font-size: clamp(18px, 4vw, 22px);">Acerte o Alvo</div>
+            <div style="font-size: 12px; color: var(--muted);">Jogo simples • HTML + CSS + JS</div>
+          </div>
+        </div>
+        <div class="panel controls card" role="group" aria-label="Controles">
+          <select id="difficulty" aria-label="Dificuldade">
+            <option value="easy">Fácil</option>
+            <option value="medium" selected>Médio</option>
+            <option value="hard">Difícil</option>
+          </select>
+          <button id="startBtn" class="primary">▶️ Começar</button>
+          <button id="pauseBtn" class="ghost" disabled>⏸️ Pausar</button>
+          <button id="themeBtn" class="ghost" title="Alternar tema">🌓 Tema</button>
+        </div>
+        <div class="panel card stats" aria-live="polite">
+          <div class="stat">
+            <h3>Tempo</h3>
+            <p id="time">30</p>
+          </div>
+          <div class="stat">
+            <h3>Pontuação</h3>
+            <p id="score">0</p>
+          </div>
+          <div class="stat">
+            <h3>Recorde</h3>
+            <p id="best">0</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="board-wrap">
+      <div class="board" id="board" aria-label="Área do jogo">
+        <button class="target" id="target" aria-label="Alvo" style="left: 50%; top: 50%;"></button>
+        <div class="overlay" id="overlay" aria-hidden="true">
+          <div class="modal">
+            <h2 style="margin: 0 0 8px">Fim de jogo 🎉</h2>
+            <p style="margin: 0 0 14px; color: var(--muted)">Sua pontuação: <strong id="finalScore">0</strong></p>
+            <div style="display:flex; gap:12px; justify-content:center; flex-wrap: wrap;">
+              <button id="againBtn" class="primary">Jogar novamente</button>
+              <button id="shareBtn" class="ghost">Compartilhar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      Feito com ❤ em HTML, CSS e JavaScript. Toque/clique no alvo para ganhar pontos.
+    </footer>
+  </div>
+
+  <script>
+    (function () {
+      const $ = (s, p = document) => p.querySelector(s);
+      const app = $('#app');
+      const board = $('#board');
+      const target = $('#target');
+      const startBtn = $('#startBtn');
+      const pauseBtn = $('#pauseBtn');
+      const themeBtn = $('#themeBtn');
+      const againBtn = $('#againBtn');
+      const shareBtn = $('#shareBtn');
+      const overlay = $('#overlay');
+      const scoreEl = $('#score');
+      const timeEl = $('#time');
+      const bestEl = $('#best');
+      const diffSel = $('#difficulty');
+      const finalScoreEl = $('#finalScore');
+
+      const DIFF = {
+        easy:  { size: 80, interval: 900 },
+        medium:{ size: 64, interval: 700 },
+        hard:  { size: 48, interval: 520 },
+      };
+
+      let running = false;
+      let paused = false;
+      let score = 0;
+      let timeLeft = 30;
+      let moveTimer = null;
+      let tickTimer = null;
+
+      // Carregar tema e recorde
+      const THEME_KEY = 'hit-theme';
+      const BEST_KEY  = 'hit-best:'; // + dificuldade
+      const savedTheme = localStorage.getItem(THEME_KEY);
+      if (savedTheme === 'light') app.classList.add('theme-light');
+
+      function loadBest() {
+        const k = BEST_KEY + diffSel.value;
+        const v = Number(localStorage.getItem(k) || 0);
+        bestEl.textContent = String(v);
+        return v;
+      }
+      loadBest();
+
+      function saveBest(val) {
+        const k = BEST_KEY + diffSel.value;
+        localStorage.setItem(k, String(val));
+      }
+
+      function setDifficultyUI() {
+        const cfg = DIFF[diffSel.value];
+        document.documentElement.style.setProperty('--target-size', cfg.size + 'px');
+      }
+      setDifficultyUI();
+      diffSel.addEventListener('change', () => {
+        setDifficultyUI();
+        if (!running) loadBest();
+      });
+
+      function rand(min, max) { return Math.random() * (max - min) + min; }
+
+      function moveTarget(animated = true) {
+        const rect = board.getBoundingClientRect();
+        const size = parseFloat(getComputedStyle(target).getPropertyValue('--size')) || DIFF[diffSel.value].size;
+        const pad = 10 + size / 2; // manter dentro sem cortar
+        const x = rand(pad, rect.width - pad);
+        const y = rand(pad, rect.height - pad);
+        target.style.left = x + 'px';
+        target.style.top  = y + 'px';
+        if (animated) {
+          target.classList.remove('pop');
+          // força reflow
+          void target.offsetWidth;
+          target.classList.add('pop');
+        }
+      }
+
+      function startGame() {
+        if (running) return;
+        running = true; paused = false;
+        score = 0; timeLeft = 30;
+        scoreEl.textContent = '0';
+        timeEl.textContent = '30';
+        overlay.classList.remove('show');
+        overlay.setAttribute('aria-hidden', 'true');
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+        diffSel.disabled = true;
+        moveLoop();
+        tickTimer = setInterval(tick, 1000);
+      }
+
+      function endGame() {
+        running = false; paused = false;
+        clearInterval(tickTimer); tickTimer = null;
+        clearInterval(moveTimer); moveTimer = null;
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+        diffSel.disabled = false;
+        finalScoreEl.textContent = String(score);
+        overlay.classList.add('show');
+        overlay.setAttribute('aria-hidden', 'false');
+        const best = loadBest();
+        if (score > best) {
+          saveBest(score);
+          bestEl.textContent = String(score);
+        }
+      }
+
+      function tick() {
+        if (!running || paused) return;
+        timeLeft -= 1;
+        timeEl.textContent = String(timeLeft);
+        if (timeLeft <= 0) endGame();
+      }
+
+      function moveLoop() {
+        clearInterval(moveTimer);
+        const { interval } = DIFF[diffSel.value];
+        moveTarget(false);
+        moveTimer = setInterval(() => { if (!paused) moveTarget(); }, interval);
+      }
+
+      function addPoint() {
+        if (!running || paused) return;
+        score += 1;
+        scoreEl.textContent = String(score);
+        moveTarget();
+      }
+
+      function togglePause() {
+        if (!running) return;
+        paused = !paused;
+        pauseBtn.textContent = paused ? '▶️ Retomar' : '⏸️ Pausar';
+      }
+
+      function toggleTheme() {
+        app.classList.toggle('theme-light');
+        const isLight = app.classList.contains('theme-light');
+        localStorage.setItem(THEME_KEY, isLight ? 'light' : 'dark');
+      }
+
+      // Compartilhar
+      async function share() {
+        const text = `Minha pontuação em Acerte o Alvo: ${score} (modo ${diffSel.value}). Tenta bater!`;
+        try {
+          if (navigator.share) {
+            await navigator.share({ title: 'Acerte o Alvo', text });
+          } else {
+            await navigator.clipboard.writeText(text);
+            alert('Pontuação copiada! Cole onde quiser.');
+          }
+        } catch (_) { /* ignorar */ }
+      }
+
+      // Eventos
+      startBtn.addEventListener('click', startGame);
+      pauseBtn.addEventListener('click', togglePause);
+      themeBtn.addEventListener('click', toggleTheme);
+      againBtn.addEventListener('click', () => { overlay.classList.remove('show'); startGame(); });
+      shareBtn.addEventListener('click', share);
+      target.addEventListener('click', addPoint);
+      target.addEventListener('touchstart', (e) => { e.preventDefault(); addPoint(); }, { passive: false });
+
+      // Garantir que o alvo fica visível após resize/orientação
+      window.addEventListener('resize', () => { if (running && !paused) moveTarget(false); });
+      window.addEventListener('blur', () => { if (running && !paused) togglePause(); });
+
+      // Primeira posição
+      moveTarget(false);
+    })();
+  </script>
+</body>
+</html>
